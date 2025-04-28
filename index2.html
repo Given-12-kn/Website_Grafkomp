@@ -122,36 +122,36 @@ const textureImagePath = './imageb3.jpeg'; // <-- PASTIKAN INI BENAR
             const vertices = new Float32Array([
                 // Depan
                 -0.5, -0.5, 0.5,  0.0, 0.0, // bawah kiri
-                 0.5, -0.5, 0.5,  1.0, 0.0, // bawah kanan
-                 0.5,  0.5, 0.5,  1.0, 1.0, // atas kanan
+                 0.5, -0.5, 0.5,  2.0, 0.0, // bawah kanan (U diubah)
+                 0.5,  0.5, 0.5,  2.0, 1.0, // atas kanan  (U diubah)
                 -0.5,  0.5, 0.5,  0.0, 1.0, // atas kiri
-                // Belakang
-                -0.5, -0.5, -0.5, 1.0, 0.0, // bawah kiri (UV dibalik agar 'B' tidak terbalik)
-                -0.5,  0.5, -0.5, 1.0, 1.0, // atas kiri
-                 0.5,  0.5, -0.5, 0.0, 1.0, // atas kanan
-                 0.5, -0.5, -0.5, 0.0, 0.0, // bawah kanan
+                // Belakang (UVs dibalik agar 'B' tidak terbalik, pertahankan logika tapi ubah U)
+                -0.5, -0.5, -0.5, 2.0, 0.0, // bawah kiri (U dibalik & diubah)
+                -0.5,  0.5, -0.5, 2.0, 1.0, // atas kiri  (U dibalik & diubah)
+                 0.5,  0.5, -0.5, 0.0, 1.0, // atas kanan (U dibalik = 0)
+                 0.5, -0.5, -0.5, 0.0, 0.0, // bawah kanan(U dibalik = 0)
                 // Atas
                 -0.5,  0.5, -0.5, 0.0, 1.0,
                 -0.5,  0.5,  0.5, 0.0, 0.0,
-                 0.5,  0.5,  0.5, 1.0, 0.0,
-                 0.5,  0.5, -0.5, 1.0, 1.0,
+                 0.5,  0.5,  0.5, 2.0, 0.0, // (U diubah)
+                 0.5,  0.5, -0.5, 2.0, 1.0, // (U diubah)
                 // Bawah
-                -0.5, -0.5, -0.5, 1.0, 1.0,
+                -0.5, -0.5, -0.5, 2.0, 1.0, // (U diubah) - Perhatikan urutan agar pas
                  0.5, -0.5, -0.5, 0.0, 1.0,
                  0.5, -0.5,  0.5, 0.0, 0.0,
-                -0.5, -0.5,  0.5, 1.0, 0.0,
+                -0.5, -0.5,  0.5, 2.0, 0.0, // (U diubah)
                 // Kanan
-                 0.5, -0.5, -0.5, 1.0, 0.0,
-                 0.5,  0.5, -0.5, 1.0, 1.0,
+                 0.5, -0.5, -0.5, 2.0, 0.0, // (U diubah)
+                 0.5,  0.5, -0.5, 2.0, 1.0, // (U diubah)
                  0.5,  0.5,  0.5, 0.0, 1.0,
                  0.5, -0.5,  0.5, 0.0, 0.0,
                 // Kiri
                 -0.5, -0.5, -0.5, 0.0, 0.0,
-                -0.5, -0.5,  0.5, 1.0, 0.0,
-                -0.5,  0.5,  0.5, 1.0, 1.0,
+                -0.5, -0.5,  0.5, 2.0, 0.0, // (U diubah)
+                -0.5,  0.5,  0.5, 2.0, 1.0, // (U diubah)
                 -0.5,  0.5, -0.5, 0.0, 1.0,
             ]);
-            const stride = 5 * Float32Array.BYTES_PER_ELEMENT; // 3 posisi + 2 texCoord
+            const stride = 5 * Float32Array.BYTES_PER_ELEMENT;  // 3 posisi + 2 texCoord
 
             const indices = new Uint16Array([
                  0,  1,  2,    0,  2,  3, // Depan
@@ -242,8 +242,9 @@ const textureImagePath = './imageb3.jpeg'; // <-- PASTIKAN INI BENAR
                 const blob = await response.blob();
 
                 // 2. Buat ImageBitmap dari Blob (lebih modern dan efisien)
+                // 'flipY' penting karena koordinat WebGL Y terbalik dibanding gambar
                 const imageBitmap = await createImageBitmap(blob, { imageOrientation: 'flipY' });
-                 // 'flipY' penting karena koordinat WebGL Y terbalik dibanding gambar
+
 
                 // 3. Buat objek tekstur WebGL
                 const texture = gl.createTexture();
@@ -259,25 +260,34 @@ const textureImagePath = './imageb3.jpeg'; // <-- PASTIKAN INI BENAR
                     imageBitmap       // data sumber
                 );
 
-                // 5. Atur parameter tekstur
-                // Cek jika dimensi adalah pangkat 2 (power of 2)
+                // --- PERUBAHAN DI SINI: Atur Wrapping dan Filtering ---
+                // Selalu set REPEAT untuk S (horizontal) jika ingin mengulang
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+                // Set REPEAT untuk T (vertikal) juga untuk konsistensi
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+                // Atur Filtering (Mipmapping HANYA jika Power-of-Two)
                 if (isPowerOf2(imageBitmap.width) && isPowerOf2(imageBitmap.height)) {
                     gl.generateMipmap(gl.TEXTURE_2D); // Buat mipmap jika PoT
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // Filter mipmap
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); // Filter pembesaran
+                    console.log("Tekstur Power-of-Two, menggunakan REPEAT dan mipmapping.");
                 } else {
-                    // Jika bukan PoT, Mipmap tidak bisa, dan WRAP harus CLAMP_TO_EDGE
-                    console.warn("Dimensi gambar bukan Power-of-Two. Menggunakan CLAMP_TO_EDGE dan filtering non-mipmap.");
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    // Jika bukan PoT, Mipmap tidak bisa, tapi REPEAT masih bisa (di WebGL 2)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // Hanya filter linear
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    console.warn("Dimensi gambar bukan Power-of-Two. Menggunakan REPEAT dan filtering non-mipmap.");
                 }
+                // Filter pembesaran biasanya LINEAR
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                // --- AKHIR PERUBAHAN PARAMETER ---
 
                 // 6. Unbind tekstur
                 gl.bindTexture(gl.TEXTURE_2D, null);
+
+                // Tutup ImageBitmap jika browser mendukungnya (praktik baik)
+                if (imageBitmap.close) {
+                    imageBitmap.close();
+                }
+
 
                 return texture; // Kembalikan objek tekstur WebGL yang sudah siap
 
