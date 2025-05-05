@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Ray Tracing Dasar - Satu Bola</title>
+    <!-- Sertakan gl-matrix dari CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/3.4.3/gl-matrix-min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f0f0f0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { border: 1px solid black; }
+    </style>
+</head>
+<body>
+    <canvas id="raytraceCanvas" width="500" height="500"></canvas>
+
+    <script>
+        // --- Helper Functions (Simulasi helper.js) ---
+
+        // Fungsi utilitas dasar untuk vektor 3D
+        // (Meskipun gl-matrix dimuat, kita definisikan beberapa di sini untuk kejelasan
+        //  dan untuk menunjukkan konsep pemisahan, serta untuk kasus sederhana ini)
+
+        /**
+         * Menghitung dot product dari dua vektor 3D.
+         * @param {vec3} a Vektor pertama.
+         * @param {vec3} b Vektor kedua.
+         * @returns {number} Hasil dot product.
+         */
+        function vec3_dot(a, b) {
+            return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        }
+
+        /**
+         * Mengurangkan vektor b dari vektor a.
+         * @param {vec3} out Vektor hasil pengurangan (a - b).
+         * @param {vec3} a Vektor pertama.
+         * @param {vec3} b Vektor kedua.
+         * @returns {vec3} Vektor hasil (out).
+         */
+        function vec3_subtract(out, a, b) {
+            out[0] = a[0] - b[0];
+            out[1] = a[1] - b[1];
+            out[2] = a[2] - b[2];
+            return out;
+        }
+
+        /**
+         * Menghitung panjang (magnitude) kuadrat dari vektor 3D.
+         * (Lebih cepat dari length karena tidak ada sqrt)
+         * @param {vec3} a Vektor.
+         * @returns {number} Panjang kuadrat.
+         */
+        function vec3_lengthSq(a) {
+            return a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
+        }
+
+        /**
+         * Menghitung panjang (magnitude) dari vektor 3D.
+         * @param {vec3} a Vektor.
+         * @returns {number} Panjang vektor.
+         */
+        function vec3_length(a) {
+            return Math.sqrt(vec3_lengthSq(a));
+        }
+
+        /**
+         * Menormalisasi vektor 3D (membuat panjangnya menjadi 1).
+         * @param {vec3} out Vektor hasil normalisasi.
+         * @param {vec3} a Vektor input.
+         * @returns {vec3} Vektor ternormalisasi (out).
+         */
+        function vec3_normalize(out, a) {
+            let len = vec3_length(a);
+            if (len > 0.00001) { // Hindari pembagian dengan nol
+                out[0] = a[0] / len;
+                out[1] = a[1] / len;
+                out[2] = a[2] / len;
+            } else {
+                out[0] = 0;
+                out[1] = 0;
+                out[2] = 0;
+            }
+            return out;
+        }
+
+        // --- Konfigurasi Scene & Raytracer ---
+
+        const canvas = document.getElementById('raytraceCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Definisi Scene
+        const cameraOrigin = [0, 0, 0]; // Posisi kamera (mata)
+        const sphere = {
+            center: [0, 0, -5], // Posisi pusat bola di depan kamera
+            radius: 1.0,        // Jari-jari bola
+            color: { r: 255, g: 0, b: 0 } // Warna bola (merah)
+        };
+        const sphereRadiusSq = sphere.radius * sphere.radius; // Precompute radius kuadrat untuk efisiensi
+
+        const backgroundColor = { r: 0, g: 0, b: 32 }; // Warna latar belakang (biru tua)
+
+        // Variabel temporary untuk perhitungan (menghindari alokasi berulang)
+        const tempVec3 = [0, 0, 0];
+        const rayDirection = [0, 0, 0];
+        const viewPlanePoint = [0, 0, 0];
+
+        // --- Fungsi Inti Ray Tracing ---
+
+        /**
+         * Menghitung perpotongan antara ray dan bola.
+         * Menggunakan solusi persamaan kuadratik.
+         * @param {vec3} rayOrigin Titik asal ray.
+         * @param {vec3} rayDirection Vektor arah ray (harus ternormalisasi).
+         * @param {object} sphereObj Objek bola dengan properti 'center' dan 'radius'.
+         * @returns {number} Jarak (t) ke titik perpotongan terdekat jika ada, atau -1 jika tidak ada perpotongan di depan ray.
+         */
+        function intersectSphere(rayOrigin, rayDirection, sphereObj) {
+            // Vektor dari pusat bola ke asal ray
+            const oc = vec3_subtract(tempVec3, rayOrigin, sphereObj.center);
+
+            // Koefisien persamaan kuadratik (At^2 + Bt + C = 0)
+            // A = dot(rayDirection, rayDirection) -> 1 jika rayDirection dinormalisasi
+            // B = 2 * dot(oc, rayDirection)
+            // C = dot(oc, oc) - radius^2
+            const a = 1.0; // Karena rayDirection diasumsikan ternormalisasi
+            const b = 2.0 * vec3_dot(oc, rayDirection);
+            const c = vec3_dot(oc, oc) - sphereRadiusSq; // Gunakan radius kuadrat
+
+            const discriminant = b * b - 4 * a * c;
+
+            if (discriminant < 0) {
+                // Tidak ada perpotongan nyata
+                return -1.0;
+            } else {
+                // Ada perpotongan, cari t (jarak) terdekat yang positif
+                const sqrtDiscriminant = Math.sqrt(discriminant);
+                const t1 = (-b - sqrtDiscriminant) / (2.0 * a);
+                const t2 = (-b + sqrtDiscriminant) / (2.0 * a);
+
+                // Kita hanya tertarik pada perpotongan di depan kamera (t > 0)
+                // dan yang paling dekat
+                if (t1 > 0.001) return t1; // Gunakan t1 jika positif (lebih dekat)
+                if (t2 > 0.001) return t2; // Gunakan t2 jika positif dan t1 tidak
+
+                // Jika kedua t negatif atau sangat dekat dengan 0, anggap tidak ada perpotongan di depan
+                return -1.0;
+            }
+        }
+
+        // --- Fungsi Render Utama ---
+
+        /**
+         * Merender scene ke canvas.
+         */
+        function render() {
+            console.log("Memulai rendering...");
+            const startTime = performance.now();
+
+            // Gunakan ImageData untuk manipulasi piksel yang lebih cepat
+            const imageData = ctx.createImageData(width, height);
+            const data = imageData.data; // Array [R, G, B, A, R, G, B, A, ...]
+
+            // Asumsi view plane terletak pada z = -1
+            const viewPlaneZ = -1;
+            // Aspek rasio (penting jika canvas tidak persegi)
+            // const aspectRatio = width / height; // = 1 untuk 500x500
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+
+                    // 1. Konversi koordinat piksel (x, y) ke koordinat view plane
+                    // Normalisasi koordinat ke rentang [-1, 1] (dengan Y terbalik)
+                    const u = (x + 0.5) / width;  // Normalisasi X (0 ke 1)
+                    const v = (y + 0.5) / height; // Normalisasi Y (0 ke 1)
+                    viewPlanePoint[0] = (2.0 * u - 1.0); // * aspectRatio; // Map ke [-1, 1]
+                    viewPlanePoint[1] = (1.0 - 2.0 * v); // Map ke [1, -1] (Y terbalik)
+                    viewPlanePoint[2] = viewPlaneZ;
+
+                    // 2. Hitung arah ray dari kamera ke titik di view plane
+                    vec3_subtract(rayDirection, viewPlanePoint, cameraOrigin);
+                    vec3_normalize(rayDirection, rayDirection); // Normalisasi arah!
+
+                    // 3. Lakukan ray tracing: cek perpotongan dengan bola
+                    const intersectionT = intersectSphere(cameraOrigin, rayDirection, sphere);
+
+                    // 4. Tentukan warna piksel
+                    const pixelIndex = (y * width + x) * 4; // Indeks R dalam array data
+
+                    if (intersectionT > 0) {
+                        // Ray mengenai bola -> gunakan warna bola
+                        data[pixelIndex    ] = sphere.color.r; // R
+                        data[pixelIndex + 1] = sphere.color.g; // G
+                        data[pixelIndex + 2] = sphere.color.b; // B
+                        data[pixelIndex + 3] = 255;            // A (Opaque)
+                    } else {
+                        // Ray tidak mengenai bola -> gunakan warna latar belakang
+                        data[pixelIndex    ] = backgroundColor.r; // R
+                        data[pixelIndex + 1] = backgroundColor.g; // G
+                        data[pixelIndex + 2] = backgroundColor.b; // B
+                        data[pixelIndex + 3] = 255;               // A (Opaque)
+                    }
+                }
+            }
+
+            // 5. Gambar hasil ImageData ke canvas
+            ctx.putImageData(imageData, 0, 0);
+
+            const endTime = performance.now();
+            console.log(`Rendering selesai dalam ${(endTime - startTime).toFixed(2)} ms`);
+        }
+
+        // --- Mulai Eksekusi ---
+        // Pastikan glMatrix siap (meskipun tidak banyak digunakan di sini)
+        glMatrix.glMatrix.setMatrixArrayType(Array); // Opsional: Gunakan Array JS biasa
+
+        // Panggil fungsi render utama
+        render();
+
+    </script>
+</body>
+</html>
