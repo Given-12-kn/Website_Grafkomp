@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scene Hierarchy & Camera Switch - Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f0f0f0; color: #333; }
+        canvas { display: block; }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            font-family: sans-serif;
+        }
+        button {
+            padding: 8px 12px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <button id="toggle-camera-btn">Ganti Kamera</button>
+        <div id="current-camera-info">Kamera Aktif: -</div>
+    </div>
+    <canvas id="webgl-canvas"></canvas>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
