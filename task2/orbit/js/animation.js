@@ -13,7 +13,7 @@ export function startAnimationLoop(
       controls.update();
     }
 
-    // Animasikan rotasi grup orbit
+    // Animasikan rotasi grup orbit (yang berisi cube dan pyramid)
     if (groupToOrbit) {
       groupToOrbit.rotation.y += 0.005; // Sesuaikan kecepatan orbit di sini
     }

@@ -15,14 +15,14 @@ if (!canvas) {
 
   loadUVTexture("textures/uv_grid_opengl.jpg")
     .then((uvTexture) => {
-      // createShowcaseObjects sekarang mengembalikan objek dengan mainGroup dan orbitGroup
       const { mainGroup, orbitGroup } = createShowcaseObjects(uvTexture);
-      scene.add(mainGroup); // Tambahkan grup utama yang berisi semua ke scene
+      scene.add(mainGroup);
 
-      // Mulai loop animasi, teruskan orbitGroup untuk dianimasikan
       startAnimationLoop(scene, camera, renderer, controls, orbitGroup);
 
-      console.log("UV Texture Showcase with Orbiting Objects Initialized!");
+      console.log(
+        "UV Texture Showcase with Cube/Pyramid Orbiting Sphere Initialized!"
+      );
     })
     .catch((error) => {
       console.error("Gagal memuat scene karena tekstur:", error);
