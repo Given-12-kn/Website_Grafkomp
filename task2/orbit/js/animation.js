@@ -3,20 +3,19 @@ export function startAnimationLoop(
   scene,
   camera,
   renderer,
-  controls,
-  groupToOrbit
+  controls /*, groupToOrbit - tidak dipakai lagi */
 ) {
   function animate() {
     requestAnimationFrame(animate);
 
     if (controls) {
-      controls.update();
+      controls.update(); // Hanya update OrbitControls
     }
 
-    // Animasikan rotasi grup orbit (yang berisi cube dan pyramid)
-    if (groupToOrbit) {
-      groupToOrbit.rotation.y += 0.005; // Sesuaikan kecepatan orbit di sini
-    }
+    // Tidak ada rotasi objek otomatis
+    // if (groupToOrbit) {
+    //     groupToOrbit.rotation.y += 0.005;
+    // }
 
     renderer.render(scene, camera);
   }

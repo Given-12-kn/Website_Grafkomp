@@ -2,13 +2,22 @@
 import * as THREE from "three";
 
 export function createShowcaseObjects(uvTexture) {
-  const mainGroup = new THREE.Group(); // Grup utama untuk semua elemen statis dan dinamis
+  const objectsGroup = new THREE.Group();
 
-  // --- Material Menggunakan MeshPhongMaterial ---
-  const objectPhongMaterial = new THREE.MeshPhongMaterial({
-    map: uvTexture.clone(),
-    specular: 0x555555,
-    shininess: 50,
+  // --- Material Utama (Phong) untuk Kubus, Bola, Piramida ---
+  const mainObjectPhongMaterial = new THREE.MeshPhongMaterial({
+    map: uvTexture.clone(), // Tekstur UV sebagai warna dasar (diffuse map)
+    color: 0xffffff, // Warna dasar objek (putih, akan dikalikan dengan map)
+
+    // Properti PHONG untuk kilau specular
+    specular: 0x777777, // Warna kilau specular (abu-abu untuk kilau putih yang cukup terang)
+    shininess: 60, // Fokus kilau (0-100+, nilai lebih tinggi = kilau lebih kecil & tajam)
+
+    // Properti EMISSIVE
+    emissive: 0x221111, // Warna cahaya yang dipancarkan (misal, merah sangat redup)
+    // Jika ingin lebih jelas, coba 0x330000 atau 0x003300 (hijau)
+    emissiveIntensity: 0.6, // Seberapa kuat cahaya emissive (0-1)
+    // emissiveMap: anotherTexture, // Jika ingin bagian tertentu saja yang bercahaya berdasarkan tekstur
   });
 
   // --- Plane (Lantai) ---
@@ -21,68 +30,49 @@ export function createShowcaseObjects(uvTexture) {
 
   const planePhongMaterial = new THREE.MeshPhongMaterial({
     map: planeTexture,
-    specular: 0x111111,
-    shininess: 10,
+    color: 0xffffff,
+    specular: 0x050505, // Kilau sangat minim untuk plane
+    shininess: 5,
+    // Plane biasanya tidak emissive
   });
   const plane = new THREE.Mesh(planeGeometry, planePhongMaterial);
   plane.rotation.x = -Math.PI / 2;
   plane.position.y = 0;
-  plane.receiveShadow = true;
-  mainGroup.add(plane);
+  plane.receiveShadow = true; // Plane menerima bayangan
+  objectsGroup.add(plane);
 
-  // --- Sphere (Pusat Orbit) ---
-  const sphereRadius = 1; // Radius geometri bola
-  const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
-  const sphere = new THREE.Mesh(sphereGeometry, objectPhongMaterial);
-  sphere.position.set(0, sphereRadius + 0.01, 0); // Posisikan di atas plane
-  sphere.castShadow = true;
-  sphere.receiveShadow = true;
-  mainGroup.add(sphere); // Tambahkan sphere ke grup utama
-
-  // --- Orbit Group (Pivot untuk Cube dan Pyramid, berpusat di Sphere) ---
-  const orbitGroup = new THREE.Group();
-  orbitGroup.name = "orbitGroup";
-  // Posisikan orbitGroup di tempat yang sama dengan sphere
-  orbitGroup.position.copy(sphere.position);
-  mainGroup.add(orbitGroup); // Tambahkan orbitGroup ke grup utama
-
-  // --- Objek yang Mengorbit (Cube dan Pyramid mengitari Sphere) ---
-  const orbitRadiusVal = 3.0; // Jarak dari pusat (sphere) ke objek yang mengorbit
-  // Offset Y agar dasar objek yang mengorbit kurang lebih sejajar dengan dasar bola
-  const orbitingObjectYOffset = -sphereRadius;
-
-  // Cube
+  // --- Cube ---
   const cubeSize = 1.5;
   const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-  const cube = new THREE.Mesh(cubeGeometry, objectPhongMaterial);
-  // Posisikan cube RELATIF terhadap orbitGroup (yang berpusat di sphere)
-  cube.position.set(orbitRadiusVal, cubeSize / 2 + orbitingObjectYOffset, 0);
-  cube.castShadow = true;
-  cube.receiveShadow = true;
-  orbitGroup.add(cube); // Tambahkan cube sebagai child dari orbitGroup
+  const cube = new THREE.Mesh(cubeGeometry, mainObjectPhongMaterial);
+  cube.position.set(-2.5, cubeSize / 2 + 0.02, 0.3); // Naikkan sedikit lebih untuk bayangan
+  cube.castShadow = true; // Cube menghasilkan bayangan
+  cube.receiveShadow = true; // Cube juga bisa menerima bayangan
+  objectsGroup.add(cube);
 
-  // Pyramid
-  const pyramidHeight = 2;
-  const pyramidBaseRadius = 1;
+  // --- Sphere ---
+  const sphereRadius = 1.0;
+  const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
+  const sphere = new THREE.Mesh(sphereGeometry, mainObjectPhongMaterial);
+  sphere.position.set(0, sphereRadius + 0.02, -0.5);
+  sphere.castShadow = true;
+  sphere.receiveShadow = true;
+  objectsGroup.add(sphere);
+
+  // --- Pyramid ---
+  const pyramidHeight = 2.0;
+  const pyramidBaseRadius = 1.0;
   const pyramidGeometry = new THREE.ConeGeometry(
     pyramidBaseRadius,
     pyramidHeight,
     4
   );
-  const pyramid = new THREE.Mesh(pyramidGeometry, objectPhongMaterial);
-  // Posisikan pyramid RELATIF terhadap orbitGroup, di sisi berlawanan dari cube
-  pyramid.position.set(
-    -orbitRadiusVal,
-    pyramidHeight / 2 + orbitingObjectYOffset,
-    0
-  );
-  pyramid.rotation.y = Math.PI / 4; // Sedikit rotasi pada pyramid itu sendiri
+  const pyramid = new THREE.Mesh(pyramidGeometry, mainObjectPhongMaterial);
+  pyramid.position.set(2.2, pyramidHeight / 2 + 0.02, 0.6);
+  pyramid.rotation.y = Math.PI / 5;
   pyramid.castShadow = true;
   pyramid.receiveShadow = true;
-  orbitGroup.add(pyramid); // Tambahkan pyramid sebagai child dari orbitGroup
+  objectsGroup.add(pyramid);
 
-  return {
-    mainGroup, // Grup yang berisi plane, sphere, dan orbitGroup
-    orbitGroup, // Grup yang berisi cube dan pyramid, dan akan diputar
-  };
+  return objectsGroup;
 }

@@ -15,13 +15,15 @@ if (!canvas) {
 
   loadUVTexture("textures/uv_grid_opengl.jpg")
     .then((uvTexture) => {
-      const { mainGroup, orbitGroup } = createShowcaseObjects(uvTexture);
-      scene.add(mainGroup);
+      // createShowcaseObjects sekarang hanya mengembalikan satu grup berisi semua objek
+      const showcaseObjectsGroup = createShowcaseObjects(uvTexture);
+      scene.add(showcaseObjectsGroup); // Tambahkan grup objek ke scene
 
-      startAnimationLoop(scene, camera, renderer, controls, orbitGroup);
+      // Mulai loop animasi, tidak perlu meneruskan grup objek untuk rotasi
+      startAnimationLoop(scene, camera, renderer, controls);
 
       console.log(
-        "UV Texture Showcase with Cube/Pyramid Orbiting Sphere Initialized!"
+        "UV Texture Showcase with Static Objects (OrbitControls) Initialized!"
       );
     })
     .catch((error) => {
