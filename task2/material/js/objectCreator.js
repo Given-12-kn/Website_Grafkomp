@@ -4,68 +4,87 @@ import * as THREE from "three";
 export function createShowcaseObjects(uvTexture) {
   const objectsGroup = new THREE.Group();
 
-  // Material umum untuk objek selain plane
-  const objectMaterial = new THREE.MeshStandardMaterial({
-    map: uvTexture.clone(), // Gunakan clone tekstur agar setting wrapping tidak mempengaruhi plane
-    roughness: 0.6,
-    metalness: 0.2,
+  // --- Material Phong Utama untuk Bola dan Piramida ---
+  // Kita akan buat material terpisah untuk Kubus agar bisa set emissive berbeda jika perlu
+  const spherePyramidPhongMaterial = new THREE.MeshPhongMaterial({
+    map: uvTexture.clone(),
+    color: 0xffffff,
+    specular: 0x777777,
+    shininess: 60,
+    // Emissive default (hitam, tidak bercahaya) untuk bola dan piramida, KECUALI kita set di bawah
   });
-  // Penting: Untuk objek seperti cube, sphere, pyramid, kita biasanya ingin
-  // tekstur default (membentang di permukaan tanpa repeat eksplisit dari sini,
-  // kecuali UV map-nya memang dirancang untuk tiling).
-  // Jika kita memodifikasi uvTexture asli, itu akan mempengaruhi semua objek.
-  // Jadi kita clone untuk plane, atau buat instance TextureLoader baru untuk plane.
-  // Atau, lebih sederhana, atur wrapping di tekstur yang spesifik untuk plane.
 
-  // 1. Plane (Lantai)
-  const planeGeometry = new THREE.PlaneGeometry(10, 10); // Tidak perlu segmentasi tinggi jika tekstur tidak diulang
+  // --- Material Phong Khusus untuk KUBUS dengan EMISSIVE ---
+  const cubeEmissivePhongMaterial = new THREE.MeshPhongMaterial({
+    map: uvTexture.clone(), // Tekstur UV
+    color: 0xffffff, // Warna dasar (jika tekstur transparan atau untuk tint)
 
-  // Buat instance tekstur baru atau clone untuk plane agar bisa di-setting berbeda
-  const planeTexture = uvTexture.clone(); // Clone tekstur asli
-  planeTexture.needsUpdate = true; // Penting setelah clone agar THREE.js tahu
+    specular: 0x888888, // Warna kilau specular (abu-abu cukup terang untuk kilau putih)
+    shininess: 75, // Fokus dan intensitas kilau (coba nilai 50-100)
 
-  // Atur agar tekstur TIDAK berulang pada plane
+    emissive: 0x332211, // Warna cahaya yang dipancarkan kubus (misal, oranye/coklat redup)
+    // Coba nilai lain: 0x222200 (kuning redup), 0x003300 (hijau redup)
+    emissiveIntensity: 0.7, // Seberapa kuat efek emissive (0-1)
+    // emissiveMap: someTexture,    // Jika ingin bagian tertentu saja yang emissive
+  });
+
+  // --- Plane (Lantai) ---
+  const planeGeometry = new THREE.PlaneGeometry(12, 12);
+  const planeTexture = uvTexture.clone();
+  planeTexture.needsUpdate = true;
   planeTexture.wrapS = THREE.ClampToEdgeWrapping;
   planeTexture.wrapT = THREE.ClampToEdgeWrapping;
+  planeTexture.repeat.set(1, 1);
 
-  // Jika Anda ingin tekstur membentang pas satu kali di plane, pastikan repeat adalah 1,1
-  // Jika sebelumnya ada .repeat.set(repeats, repeats), hapus atau set ke (1,1)
-  planeTexture.repeat.set(1, 1); // Tekstur membentang satu kali
-
-  const planeMaterial = new THREE.MeshStandardMaterial({
-    map: planeTexture, // Gunakan tekstur yang sudah di-setting untuk plane
-    roughness: 0.8,
-    metalness: 0.1,
+  const planePhongMaterial = new THREE.MeshPhongMaterial({
+    map: planeTexture,
+    color: 0xffffff,
+    specular: 0x050505,
+    shininess: 5,
   });
-
-  const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+  const plane = new THREE.Mesh(planeGeometry, planePhongMaterial);
   plane.rotation.x = -Math.PI / 2;
   plane.position.y = 0;
+  plane.receiveShadow = true;
   objectsGroup.add(plane);
 
-  // 2. Cube
-  // Gunakan material objek umum yang tidak memiliki setting wrapping khusus
-  const cubeGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-  const cube = new THREE.Mesh(cubeGeometry, objectMaterial); // Menggunakan objectMaterial
-  cube.position.set(-2, 1.5 / 2, -0.5);
+  // --- Cube ---
+  const cubeSize = 1.5;
+  const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+  // Gunakan material khusus kubus yang sudah ada emissive-nya
+  const cube = new THREE.Mesh(cubeGeometry, cubeEmissivePhongMaterial);
+  cube.position.set(-2.5, cubeSize / 2 + 0.02, 0.3);
+  cube.castShadow = true;
+  cube.receiveShadow = true;
   objectsGroup.add(cube);
 
-  // 3. Sphere
-  const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
-  const sphere = new THREE.Mesh(sphereGeometry, objectMaterial); // Menggunakan objectMaterial
-  sphere.position.set(0, 1, 0);
+  // --- Sphere ---
+  // Jika ingin sphere juga emissive, bisa gunakan cubeEmissivePhongMaterial
+  // atau tambahkan properti emissive ke spherePyramidPhongMaterial
+  const sphereRadius = 1.0;
+  const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
+  const sphere = new THREE.Mesh(sphereGeometry, spherePyramidPhongMaterial); // Menggunakan material tanpa emissive default
+  // Contoh jika ingin sphere juga emissive sedikit berbeda:
+  // sphere.material.emissive.setHex(0x111122); // Biru redup
+  // sphere.material.emissiveIntensity = 0.5;
+  sphere.position.set(0, sphereRadius + 0.02, -0.5);
+  sphere.castShadow = true;
+  sphere.receiveShadow = true;
   objectsGroup.add(sphere);
 
-  // 4. Pyramid (Cone dengan 4 sisi)
-  const pyramidHeight = 2;
-  const pyramidRadius = 1;
+  // --- Pyramid ---
+  const pyramidHeight = 2.0;
+  const pyramidBaseRadius = 1.0;
   const pyramidGeometry = new THREE.ConeGeometry(
-    pyramidRadius,
+    pyramidBaseRadius,
     pyramidHeight,
     4
   );
-  const pyramid = new THREE.Mesh(pyramidGeometry, objectMaterial); // Menggunakan objectMaterial
-  pyramid.position.set(2.2, pyramidHeight / 2, -0.2);
+  const pyramid = new THREE.Mesh(pyramidGeometry, spherePyramidPhongMaterial); // Menggunakan material tanpa emissive default
+  pyramid.position.set(2.2, pyramidHeight / 2 + 0.02, 0.6);
+  pyramid.rotation.y = Math.PI / 5;
+  pyramid.castShadow = true;
+  pyramid.receiveShadow = true;
   objectsGroup.add(pyramid);
 
   return objectsGroup;
